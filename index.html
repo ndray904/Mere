@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Mere, a pond you play</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: one full-bleed canvas of night water; thin dark-glass controls float at the top and bottom edges. */
+  --ink:#f3ecff;
+  --ink-dim:rgba(243,236,255,.62);
+  --water:#070a1c;
+  --glass:rgba(18,16,34,.62);
+  --glass-line:rgba(255,255,255,.14);
+  --accent:#ffb86b;
+  --display:"Cormorant Garamond","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --body:"Jost","Avenir Next","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--water);color:var(--ink);font-family:var(--body);font-weight:400;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body{position:relative;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+
+/* water: one static layer per mood, crossfaded by the compositor */
+.bg{position:absolute;inset:0;opacity:0;transition:opacity 1.6s;overflow:hidden;pointer-events:none}
+.bg.on{opacity:1}
+.bg i{position:absolute;inset:-25%;will-change:transform}
+.bg.on i{animation:drift 70s ease-in-out infinite alternate}
+@keyframes drift{from{transform:translate3d(-6%,4%,0) rotate(8deg)}to{transform:translate3d(6%,-5%,0) rotate(-6deg)}}
+.caus{position:absolute;left:0;top:0;width:calc(50% + 128px);height:calc(50% + 128px);transform-origin:0 0;transform:scale(2);pointer-events:none;will-change:transform}
+#causA{background-size:128px 128px;opacity:.12;animation:causA 46s linear infinite}
+#causB{background-size:96px 96px;opacity:.08;animation:causB 38s linear infinite}
+@keyframes causA{from{transform:scale(2) translate3d(0,0,0)}to{transform:scale(2) translate3d(-128px,-128px,0)}}
+@keyframes causB{from{transform:scale(2) translate3d(-96px,0,0)}to{transform:scale(2) translate3d(0,-96px,0)}}
+#decor{pointer-events:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.vign{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 35%,rgba(0,0,0,.5) 100%)}
+
+.top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(18px,env(safe-area-inset-left));pointer-events:none}
+.mark{font-family:var(--display);font-style:italic;font-weight:500;font-size:30px;letter-spacing:.01em;line-height:1;text-shadow:0 0 24px rgba(0,0,0,.4)}
+.top-r{display:flex;gap:8px;pointer-events:auto}
+.pill{height:40px;display:inline-flex;align-items:center;gap:9px;padding:0 15px;border-radius:999px;background:var(--glass);border:1px solid var(--glass-line);
+  font-size:13px;letter-spacing:.14em;text-transform:uppercase;transition:transform .15s}
+.pill:active{transform:scale(.96)}
+.pill.icon{width:40px;padding:0;justify-content:center}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+
+.caption{position:absolute;left:16px;right:16px;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 88px);text-align:center;font-family:var(--display);font-style:italic;font-size:19px;line-height:1.3;
+  color:var(--ink);text-shadow:0 1px 18px rgba(0,0,0,.7);opacity:0;transform:translateY(6px);transition:opacity .6s,transform .6s;pointer-events:none;text-wrap:balance}
+.caption.on{opacity:.92;transform:none}
+
+.tools{position:absolute;left:50%;transform:translateX(-50%);bottom:max(18px,env(safe-area-inset-bottom));display:flex;gap:2px;padding:5px;border-radius:999px;
+  background:rgba(16,14,30,.74);border:1px solid var(--glass-line);box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.tool{height:58px;min-width:76px;padding:0 10px;border-radius:999px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  font-size:10px;letter-spacing:.17em;text-transform:uppercase;color:var(--ink-dim);transition:color .3s,background .3s}
+.tool svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.tool[aria-pressed="true"]{color:#14101f;background:var(--accent)}
+
+.scrim{position:absolute;inset:0;background:rgba(3,4,12,.5);opacity:0;pointer-events:none;transition:opacity .35s}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:50%;bottom:0;width:min(100%,460px);transform:translate(-50%,105%);transition:transform .45s cubic-bezier(.2,.8,.2,1);
+  background:rgba(18,16,34,.96);border:1px solid var(--glass-line);border-bottom:0;border-radius:26px 26px 0 0;
+  padding:10px 22px calc(max(20px,env(safe-area-inset-bottom)) + 4px);max-height:86%;overflow-y:auto;display:flex;flex-direction:column;gap:18px}
+.sheet.on{transform:translate(-50%,0)}
+.grab{width:38px;height:4px;border-radius:4px;background:var(--glass-line);align-self:center;flex:none}
+.sheet h2{font-family:var(--display);font-style:italic;font-weight:500;font-size:26px;margin:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.row .lab{display:flex;flex-direction:column;gap:2px}
+.row .lab b{font-weight:500;font-size:15px;letter-spacing:.04em}
+.row .lab span{font-size:13px;color:var(--ink-dim);font-weight:300}
+.switch{flex:none;width:50px;height:30px;border-radius:30px;background:rgba(255,255,255,.12);position:relative;transition:background .3s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--ink);transition:transform .3s}
+.switch[aria-pressed="true"]{background:var(--accent)}
+.switch[aria-pressed="true"]::after{transform:translateX(20px);background:#14101f}
+input[type=range]{-webkit-appearance:none;appearance:none;width:150px;height:30px;background:none;flex:none}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:3px;background:rgba(255,255,255,.2)}
+input[type=range]::-moz-range-track{height:3px;border-radius:3px;background:rgba(255,255,255,.2)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--accent);margin-top:-10px}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radius:50%;background:var(--accent)}
+.note{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink);font-weight:300;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06)}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btns .pill{flex:1;justify-content:center;font-size:12px;white-space:nowrap;background:rgba(255,255,255,.06)}
+.how{margin:0;padding:16px 0 0;border-top:1px solid var(--glass-line);display:grid;gap:10px;font-size:14px;line-height:1.45;color:var(--ink-dim);font-weight:300;list-style:none}
+.how b{color:var(--ink);font-weight:500}
+
+.moods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mood{position:relative;text-align:left;border-radius:18px;padding:14px 14px 13px;border:1px solid var(--glass-line);overflow:hidden;display:flex;flex-direction:column;gap:3px;min-height:84px;justify-content:flex-end}
+.mood[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink) inset}
+.mood em{position:absolute;top:13px;right:13px;width:10px;height:10px;border-radius:50%}
+.mood b{font-family:var(--display);font-style:italic;font-weight:500;font-size:23px;line-height:1}
+.mood span{font-size:11.5px;line-height:1.3;color:rgba(255,255,255,.75);font-weight:300}
+
+.intro{position:absolute;inset:0;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:18px;
+  padding:32px max(26px,env(safe-area-inset-right)) calc(max(40px,env(safe-area-inset-bottom)) + 16px) max(26px,env(safe-area-inset-left));
+  background:linear-gradient(to top,rgba(5,6,18,.9) 0%,rgba(5,6,18,.55) 45%,rgba(5,6,18,.1) 100%);transition:opacity .9s;z-index:5}
+.intro.off{opacity:0;pointer-events:none}
+.intro h1{font-family:var(--display);font-style:italic;font-weight:400;font-size:clamp(84px,26vw,150px);line-height:.8;margin:0 0 4px -4px;letter-spacing:-.02em}
+.intro p{margin:0;max-width:30ch;font-family:var(--display);font-size:23px;line-height:1.3;text-wrap:balance}
+.intro small{font-size:12.5px;letter-spacing:.06em;color:var(--ink-dim);font-weight:300}
+.begin{height:56px;padding:0 30px;border-radius:999px;background:var(--accent);color:#14101f;font-size:13px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;
+  box-shadow:0 0 44px -6px var(--accent)}
+.chrome{transition:opacity .9s}
+.chrome.hid{opacity:0;pointer-events:none}
+@media (max-width:350px){.tool{min-width:68px;padding:0 6px}}
+@media (prefers-reduced-motion:reduce){.bg.on i,.caus{animation:none}.sheet,.caption,.intro,.bg{transition:none}}
+</style>
+</head>
+<body>
+<div id="bgs"></div>
+<div class="caus" id="causA"></div>
+<div class="caus" id="causB"></div>
+<canvas id="decor" aria-hidden="true"></canvas>
+<canvas id="pond" aria-label="The pond. Tap to play."></canvas>
+<div class="vign"></div>
+
+<header class="top chrome hid" id="top">
+  <div class="mark">Mere</div>
+  <div class="top-r">
+    <button class="pill" id="mood" aria-label="Choose a mood"><span class="dot"></span><span id="moodName">Dusk</span></button>
+    <button class="pill icon" id="menu" aria-label="Settings and help">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M2 5h8M14 5h2M2 13h2M8 13h8"/><circle cx="12" cy="5" r="2"/><circle cx="6" cy="13" r="2"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="caption" id="caption" role="status"></div>
+
+<nav class="tools chrome hid" id="tools" aria-label="Tools">
+  <button class="tool" data-tool="drop" aria-pressed="true">
+    <svg viewBox="0 0 20 20"><path d="M10 2.5c3 3.8 5 6.3 5 9a5 5 0 0 1-10 0c0-2.700 2-5.200 5-9z"/></svg>Pebble
+  </button>
+  <button class="tool" data-tool="lantern" aria-pressed="false">
+    <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="3.2"/><path d="M10 2v2.200M10 15.800V18M2 10h2.200M15.800 10H18M4.300 4.300l1.600 1.600M14.100 14.100l1.600 1.600M4.300 15.700l1.600-1.600M14.100 5.900l1.600-1.600"/></svg>Lantern
+  </button>
+  <button class="tool" data-tool="spring" aria-pressed="false">
+    <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="1.300"/><circle cx="10" cy="10" r="4.600"/><circle cx="10" cy="10" r="8"/></svg>Spring
+  </button>
+  <button class="tool" data-tool="koi" aria-pressed="false">
+    <svg viewBox="0 0 20 20"><path d="M2.500 10c2.500-3.600 7-4.600 10.500-2l4-2.800v9.600l-4-2.800c-3.500 2.600-8 1.600-10.500-2z"/><circle cx="6.500" cy="9.400" r=".5"/></svg>Koi
+  </button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+
+<section class="sheet" id="moodSheet" aria-label="Moods" aria-hidden="true">
+  <div class="grab"></div>
+  <h2>Moods</h2>
+  <div class="moods" id="moods"></div>
+</section>
+
+<section class="sheet" id="sheet" aria-label="Settings" aria-hidden="true">
+  <div class="grab"></div>
+  <h2>The water</h2>
+  <div class="row">
+    <div class="lab"><b>Flow</b><span>How fast ripples travel</span></div>
+    <input type="range" id="flow" min="0.5" max="2" step="0.05" value="1" aria-label="Flow">
+  </div>
+  <div class="row">
+    <div class="lab"><b>Echoes</b><span>A ringing lantern wakes its neighbours</span></div>
+    <button class="switch" id="echo" aria-pressed="false" aria-label="Echoes"></button>
+  </div>
+  <div class="row">
+    <div class="lab"><b>Night air</b><span>A low drone under everything</span></div>
+    <button class="switch" id="drone" aria-pressed="true" aria-label="Night air"></button>
+  </div>
+  <p class="note">To remove one thing, hold a finger on it. This works on any lantern, spring or koi.</p>
+  <div class="btns">
+    <button class="pill" id="clear">Empty the pond</button>
+    <button class="pill" id="restore">First pond</button>
+  </div>
+  <ul class="how">
+    <li><b>Pebble.</b> Tap the water to send out a ripple. Drag to skim a trail of them.</li>
+    <li><b>Lantern.</b> Rings when a ripple reaches it. Higher on the water sings higher. Tap one to ring it yourself.</li>
+    <li><b>Spring.</b> Drops a pebble on a steady pulse. Tap it to change the pulse.</li>
+    <li><b>Koi.</b> Tap the water to release a fish. It wanders the pond and rings the lanterns it brushes past. Tap one to startle it.</li>
+    <li><b>Mood.</b> The button at the top changes the key, the voice and the light.</li>
+  </ul>
+</section>
+
+<div class="intro" id="intro">
+  <h1>Mere</h1>
+  <p>A pond you play. Drop a pebble and its ripple rings every lantern it reaches.</p>
+  <button class="begin" id="begin">Wake the water</button>
+  <small>Sound on. On iPhone, switch off silent mode.</small>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cv = $('pond'), ctx = cv.getContext('2d');
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hex = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+const rgba = (c,a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const TAU = 6.2832;
+
+/* ---------- moods ---------- */
+const MOODS = [
+  {name:'Dusk', desc:'D minor pentatonic, glass bells', root:50, scale:[0,3,5,7,10], timbre:'glass',
+   bg:['#060818','#171238','#3b2050'], glow:'#ff9a6b', ripple:'#ffd9c4', pal:['#ffb86b','#ff8fa3','#ffe1a8','#c9a0ff','#8fd3ff']},
+  {name:'Moss', desc:'F major ninth, thumb piano', root:53, scale:[0,2,4,7,11], timbre:'kalimba',
+   bg:['#020d0c','#062a25','#12513f'], glow:'#b9e36a', ripple:'#d6ffe2', pal:['#e8f59a','#9df0c0','#ffe08a','#6fe3d0','#d4ff7a']},
+  {name:'Ember', desc:'A hirajoshi, singing bowls', root:45, scale:[0,2,3,7,8], timbre:'bowl',
+   bg:['#0a0404','#260b0b','#4c1b10'], glow:'#ff6a3d', ripple:'#ffc8aa', pal:['#ff7a45','#ffc15e','#ff4d6d','#ffe3b0','#ff9e7a']},
+  {name:'Frost', desc:'E flat major pentatonic, crystal', root:51, scale:[0,2,4,7,9], timbre:'crystal',
+   bg:['#040a14','#0c2036','#214862'], glow:'#8fe6ff', ripple:'#d7f0ff', pal:['#e6f7ff','#8fe6ff','#b9c8ff','#a8ffe8','#ffffff']},
+  {name:'Dawn', desc:'G major, harp', root:55, scale:[0,2,4,7,9,11], timbre:'harp',
+   bg:['#110b24','#3d1f4a','#8a4a55'], glow:'#ffc48a', ripple:'#ffe9d6', pal:['#fff0b8','#ffb3a0','#ffd27a','#f7a8d8','#ffe6cf','#b8e0ff']},
+  {name:'Tide', desc:'C whole tone, hollow pipes', root:48, scale:[0,2,4,6,8,10], timbre:'pipe', drone:[-12,-4,0,8],
+   bg:['#020d16','#06303f','#0d5a66'], glow:'#4fe0d0', ripple:'#cffcf5', pal:['#7af0e0','#a0c8ff','#d0fff0','#6fb8ff','#b0f5c8','#e0e8ff']},
+  {name:'Cedar', desc:'G minor sixth, marimba', root:55, scale:[0,2,3,7,9], timbre:'marimba',
+   bg:['#0b0805','#2a1c10','#4d3418'], glow:'#e0a050', ripple:'#f5e2c0', pal:['#f0c070','#e89060','#f5e0a0','#c8d080','#ffb080']},
+  {name:'Bronze', desc:'C sharp pelog, gamelan', root:49, scale:[0,1,3,7,8], timbre:'gamelan',
+   bg:['#07070b','#1c1a2c','#3a3440'], glow:'#d4b060', ripple:'#efe4c8', pal:['#e8c46a','#c9a0a0','#f2e2a8','#9fb8c8','#d89a5a']},
+];
+MOODS.forEach(m => { m.ripc = hex(m.ripple); m.palc = m.pal.map(hex); });
+/* h: harmonics of the body (one oscillator). x: extra inharmonic partials [ratio, gain, decay]. */
+const TIMBRES = {
+  glass:  {att:.004, decay:.9,  rev:.55, del:.22, h:[1,.2,.1,0,.03],                 x:[[5.4,.06,.12]]},
+  kalimba:{att:.002, decay:.42, rev:.4,  del:.3,  h:[1,.1],                          x:[[5.43,.24,.07]]},
+  bowl:   {att:.03,  decay:1.25,rev:.7,  del:.12, h:[1,0,.05],                       x:[[1.005,.55,1],[2.71,.3,.5]]},
+  crystal:{att:.002, decay:.7,  rev:.6,  del:.3,  h:[1,.18,0,.26,0,0,0,.05],         x:[]},
+  harp:   {att:.003, decay:.8,  rev:.5,  del:.2,  h:[1,.33,.17,.11,.076,.057,.044,.036], x:[], amp:1.15},
+  pipe:   {att:.07,  decay:.5,  rev:.75, del:.3,  h:[1,0,.28,0,.08],                 x:[]},
+  marimba:{att:.002, decay:.3,  rev:.4,  del:.25, h:[1],                             x:[[4,.3,.08],[10,.08,.03]], amp:1.2},
+  gamelan:{att:.003, decay:1.0, rev:.6,  del:.15, h:[1],                             x:[[2.76,.4,.5],[5.4,.2,.2]]},
+};
+const NAMES = ['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const ROWS = 13, PERS = [4,2,1,8], LOOK = .12, MAXL = 40, MAXS = 6, MAXV = 26;
+const PRESET = {l:[[.3,7],[.7,9],[.2,4],[.82,5],[.56,11],[.4,2],[.66,0]], s:[[.5,.52,4]], k:1};
+const MAXK = 5;
+
+/* ---------- state ---------- */
+let W=0, H=0, DPR=1, maxDPR=2, minD=0, top=92, bot=0;
+let moodI = 0, mood = MOODS[0], flow = 1, echoes = false, droneOn = true, tool = 'drop', started = false;
+let lanterns = [], springs = [], ripples = [], hits = [], kois = [], sparks = [], kscale = 1;
+let guideA = 0, dragRow = -1;
+const ptrs = new Map();
+
+const midiOf = i => { const n = mood.scale.length; return mood.root + 12*Math.floor(i/n) + mood.scale[i%n]; };
+const freqOf = i => 440*Math.pow(2,(midiOf(i)-69)/12);
+const colOf = i => (i%mood.scale.length)%mood.pal.length;
+const rowY = i => top + (1 - i/(ROWS-1))*(bot-top);
+const rowAt = y => clamp(Math.round((1-(y-top)/(bot-top))*(ROWS-1)),0,ROWS-1);
+const beat = () => .6/flow;
+const speed = () => .3*minD*flow;
+const wall = () => performance.now()/1000;
+
+/* ---------- audio ---------- */
+let ac=null, bus, revIn, delIn, delay, voiceBus, revSend, delSend, droneG, droneO=[], voices=0;
+const waves = {};
+const now = () => (started && ac) ? ac.currentTime : wall();
+
+function impulse(sec, decay){
+  const n = ac.sampleRate*sec|0, b = ac.createBuffer(2,n,ac.sampleRate);
+  for(let c=0;c<2;c++){
+    const d = b.getChannelData(c); let lp = 0;
+    for(let i=0;i<n;i++){
+      const x = i/n, k = .2+.72*x;
+      lp = lp*k + (Math.random()*2-1)*(1-k);
+      d[i] = lp*Math.pow(1-x,decay)*(i<300 ? i/300 : 1)*2.2;
+    }
+  }
+  return b;
+}
+function initAudio(){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  ac = new AC();
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value=-20; comp.knee.value=18; comp.ratio.value=5; comp.attack.value=.004; comp.release.value=.3;
+  const master = ac.createGain(); master.gain.value=.9;
+  comp.connect(master); master.connect(ac.destination);
+  bus = ac.createGain(); bus.connect(comp);
+  const conv = ac.createConvolver(); conv.buffer = impulse(3,2.4);
+  revIn = ac.createGain(); const revOut = ac.createGain(); revOut.gain.value=.8;
+  revIn.connect(conv); conv.connect(revOut); revOut.connect(comp);
+  delIn = ac.createGain(); delay = ac.createDelay(2.5); delay.delayTime.value = beat()*.75;
+  const dlp = ac.createBiquadFilter(); dlp.type='lowpass'; dlp.frequency.value=2000;
+  const fb = ac.createGain(); fb.gain.value=.36; const dOut = ac.createGain(); dOut.gain.value=.5;
+  delIn.connect(delay); delay.connect(dlp); dlp.connect(fb); fb.connect(delay); dlp.connect(dOut); dOut.connect(comp); dOut.connect(revIn);
+  // every chime shares one set of sends
+  voiceBus = ac.createGain(); revSend = ac.createGain(); delSend = ac.createGain();
+  voiceBus.connect(bus); voiceBus.connect(revSend); revSend.connect(revIn); voiceBus.connect(delSend); delSend.connect(delIn);
+  for(const k in TIMBRES){
+    const h = TIMBRES[k].h, re = new Float32Array(h.length+1), im = new Float32Array(h.length+1);
+    h.forEach((v,n) => { im[n+1] = v; });
+    waves[k] = ac.createPeriodicWave(re, im);
+  }
+  // drone
+  droneG = ac.createGain(); droneG.gain.value=0;
+  const lp = ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=380; lp.Q.value=.6;
+  const lfo = ac.createOscillator(); lfo.frequency.value=.06; const lg = ac.createGain(); lg.gain.value=150;
+  lfo.connect(lg); lg.connect(lp.frequency); lfo.start();
+  [['sine',.5],['sine',.3],['triangle',.16],['sine',.07]].forEach(([type,g],k) => {
+    const o = ac.createOscillator(); o.type=type; o.detune.value=(k-1.5)*3;
+    const gn = ac.createGain(); gn.gain.value=g; o.connect(gn); gn.connect(lp); o.start(); droneO.push(o);
+  });
+  lp.connect(droneG); droneG.connect(bus); const dr = ac.createGain(); dr.gain.value=.6; droneG.connect(dr); dr.connect(revIn);
+  tuneAudio(0); setDrone();
+}
+function tuneAudio(glide){
+  if(!ac) return;
+  const f = m => 440*Math.pow(2,(m-69)/12), t = ac.currentTime, T = TIMBRES[mood.timbre];
+  (mood.drone || [-12,-5,0,7]).forEach((m,k) => droneO[k].frequency.setTargetAtTime(f(mood.root+m), t, glide || .01));
+  revSend.gain.setTargetAtTime(T.rev, t, .2); delSend.gain.setTargetAtTime(T.del, t, .2);
+}
+function setDrone(){ if(ac) droneG.gain.setTargetAtTime(droneOn ? .11 : 0, ac.currentTime, .8); }
+
+function chime(freq, t, vel, pan){
+  if(!ac || voices >= MAXV || (voices > 16 && vel < .25)) return;
+  const T = TIMBRES[mood.timbre], t0 = Math.max(t, ac.currentTime);
+  const out = ac.createStereoPanner ? ac.createStereoPanner() : ac.createGain();
+  if(out.pan) out.pan.value = clamp(pan,-1,1);
+  out.connect(voiceBus);
+  const dk = T.decay*clamp(Math.pow(260/freq,.35),.5,1.5), amp = (.1+.9*vel)*.2*(T.amp||1);
+  const part = (f, g, d, wave) => {
+    const o = ac.createOscillator(), gn = ac.createGain();
+    if(wave) o.setPeriodicWave(wave);
+    o.frequency.value = f;
+    gn.gain.setValueAtTime(0,t0);
+    gn.gain.linearRampToValueAtTime(g*amp, t0+T.att);
+    gn.gain.setTargetAtTime(0, t0+T.att, dk*d);
+    o.connect(gn); gn.connect(out); o.start(t0); o.stop(t0+T.att+dk*d*5+(wave ? .06 : 0));
+    if(wave){ voices++; o.onended = () => { voices--; out.disconnect(); }; }
+    else o.onended = () => gn.disconnect();
+  };
+  part(freq, 1, 1, waves[mood.timbre]);
+  for(const [r,g,d] of T.x) if(freq*r < 9000) part(freq*r, g, Math.min(d,1));
+}
+function plip(freq, vel, pan){
+  if(!ac) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(freq*.7,t); o.frequency.exponentialRampToValueAtTime(freq*1.7,t+.075);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.13*vel,t+.008); g.gain.exponentialRampToValueAtTime(.0005,t+.2);
+  o.connect(g); g.connect(bus); g.connect(revIn); o.start(t); o.stop(t+.25);
+  o.onended = () => g.disconnect();
+}
+
+/* ---------- pond logic ---------- */
+function addRipple(x,y,t0,e0,gen,R,trig,col,src){
+  ripples.push({x,y,t0,e0,gen,R,trig,col,src,v:speed(),scanned:0});
+  if(ripples.length > 56) ripples.shift();
+}
+function drop(x,y,e){
+  addRipple(x,y,now(),e,0, e>=1 ? Math.hypot(W,H)*.92 : minD*.55, true, null, null);
+  plip(freqOf(rowAt(y))*2, .5+.5*e, 0);
+}
+function ring(l, vel, quiet){
+  const t = now();
+  if(started) chime(freqOf(l.i), t, vel, (l.x-.5)*1.5);
+  l.last = t;
+  hits.push({t, l, vel, gen: quiet ? 1 : 0});
+}
+function addLantern(x,i){ const l = {x, i, flash:0, ph:Math.random()*TAU, born:wall(), last:-1, by:0, bv:0, kt:0}; lanterns.push(l); return l; }
+function addSpring(x,y,per){ const s = {x, y, per, next: now()+.25, born:wall()}; springs.push(s); return s; }
+function loadPond(p){
+  lanterns = []; springs = []; ripples = []; hits = []; kois = []; sparks = [];
+  (p.l||[]).slice(0,MAXL).forEach(([x,i]) => addLantern(clamp(+x||.5,.09,.91), clamp(i|0,0,ROWS-1)));
+  (p.s||[]).slice(0,MAXS).forEach(([x,y,per]) => addSpring(clamp(+x||.5,.09,.91), clamp(+y||.5,.08,.92), PERS.includes(per)?per:4));
+  for(let k=0;k<clamp(p.k|0,0,MAXK);k++) addKoi((.2+Math.random()*.6)*(W||300), (.25+Math.random()*.5)*(H||500));
+}
+function save(){
+  try{ localStorage.setItem('mere-pond-v1', JSON.stringify({
+    l:lanterns.map(l => [+l.x.toFixed(3), l.i]), s:springs.map(s => [+s.x.toFixed(3), +s.y.toFixed(3), s.per]),
+    k:kois.length, m:moodI, flow, echoes, droneOn })); }catch(e){}
+}
+function restore(){
+  let d = null;
+  try{ d = JSON.parse(localStorage.getItem('mere-pond-v1')); }catch(e){}
+  if(d && Array.isArray(d.l) && Array.isArray(d.s)){
+    loadPond(d);
+    moodI = clamp(d.m|0,0,MOODS.length-1); flow = clamp(+d.flow||1,.5,2); echoes = !!d.echoes; droneOn = d.droneOn !== false;
+  } else loadPond(PRESET);
+}
+
+function step(t){
+  const diag = Math.hypot(W,H)*.92;
+  for(const s of springs){
+    if(s.next < t-1 || s.next > t+s.per*beat()+1) s.next = t+.1;
+    while(s.next < t+LOOK){ addRipple(s.x*W, s.y*H, s.next, 1, 0, diag, true, null, null); s.next += s.per*beat(); }
+  }
+  for(const r of ripples){
+    if(!r.trig) continue;
+    const rN = Math.min(r.R, r.v*(t+LOOK-r.t0));
+    if(rN <= r.scanned) continue;
+    for(const l of lanterns){
+      if(l === r.src) continue;
+      const dx = l.x*W-r.x, dy = rowY(l.i)-r.y, d = Math.sqrt(dx*dx+dy*dy);
+      if(d > r.scanned && d <= rN){
+        const tt = r.t0 + d/r.v;
+        if(tt - l.last < .045) continue;          // two wavefronts at once: one strike
+        l.last = tt;
+        const vel = clamp(.12 + .88*r.e0*Math.pow(1-d/r.R,1.4), 0, 1);
+        if(started) chime(freqOf(l.i), tt, vel, (l.x-.5)*1.5);
+        hits.push({t:tt, l, vel, gen:r.gen});
+      }
+    }
+    r.scanned = rN;
+  }
+  for(let k=hits.length-1;k>=0;k--){
+    const h = hits[k]; if(h.t > t) continue;
+    hits.splice(k,1);
+    if(!lanterns.includes(h.l)) continue;
+    h.l.flash = Math.max(h.l.flash, .5+.5*h.vel);
+    h.l.bv += 70*h.vel;
+    const first = h.gen === 0;
+    if(!reduced) burst(h.l.x*W, rowY(h.l.i), mood.pal[colOf(h.l.i)], 3+h.vel*(first ? 7 : 3)|0);
+    addRipple(h.l.x*W, rowY(h.l.i), h.t, .55*h.vel, h.gen+1, first ? minD*.34 : minD*.13, first && echoes, mood.pal[colOf(h.l.i)], h.l);
+  }
+}
+
+/* ---------- koi ---------- */
+const KW = [4.5,7,8,7.6,6.4,4.8,3.2,2,1.2], SEG = 7, KN = KW.length;
+const KPAT = [
+  {base:'#f6efe6', fin:'#fbf3ea', spots:[[1,'#ff5a1f',.3],[3,'#ff5a1f',-.3],[4,'#ff6a2a',.15],[6,'#ff5a1f',0]]},
+  {base:'#ffb22a', fin:'#ffd27a', spots:[[2,'#ffe08a',0],[4,'#ffe08a',0],[6,'#ffe08a',0]]},
+  {base:'#26222e', fin:'#4a4452', spots:[[1,'#ff5a1f',-.3],[2,'#f6efe6',.35],[4,'#ff5a1f',.25],[5,'#f6efe6',-.3]]},
+];
+const KP = new Float32Array(KN*4+4), KC = new Float32Array(KN*4);
+function addKoi(x,y){
+  const a = Math.random()*TAU, k = {x, y, a, boost:0, wob:Math.random()*TAU, ph:Math.random()*TAU, tx:x, ty:y, tt:0, born:wall(),
+    pat:KPAT[kois.length%KPAT.length], size:.9+Math.random()*.35, wake:Math.random(), sp:[]};
+  for(let i=0;i<KN;i++) k.sp.push({x:x-Math.cos(a)*i*SEG, y:y-Math.sin(a)*i*SEG});
+  kois.push(k); return k;
+}
+function swim(k, dt, w){
+  const mx = W*.12, y0 = top-6, y1 = bot+24;
+  if(w > k.tt || Math.hypot(k.tx-k.x, k.ty-k.y) < 22){
+    if(lanterns.length && Math.random() < .7){ const l = lanterns[Math.random()*lanterns.length|0]; k.tx = l.x*W; k.ty = rowY(l.i); }
+    else { k.tx = mx+Math.random()*(W-2*mx); k.ty = y0+Math.random()*(y1-y0); }
+    k.tt = w+3+Math.random()*5;
+  }
+  let diff = Math.atan2(k.ty-k.y, k.tx-k.x)-k.a; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+  k.a += (clamp(diff,-1,1)*1.5 + Math.sin(w*.7+k.ph)*.55)*dt;
+  k.boost *= Math.exp(-dt*1.6);
+  const v = minD*.085*(1+k.boost*3.5), s = k.size*kscale, sp = k.sp;
+  k.wob += dt*(3.2+k.boost*9);
+  k.x += Math.cos(k.a)*v*dt; k.y += Math.sin(k.a)*v*dt;
+  sp[0].x = k.x; sp[0].y = k.y;
+  for(let i=1;i<KN;i++){
+    const p = sp[i-1], q = sp[i], dx = q.x-p.x, dy = q.y-p.y, d = Math.sqrt(dx*dx+dy*dy)||1, L = SEG*s/d;
+    q.x = p.x+dx*L; q.y = p.y+dy*L;
+  }
+  for(const l of lanterns){
+    const dx = l.x*W-k.x, dy = rowY(l.i)-k.y;
+    if(dx*dx+dy*dy < 700 && w-l.kt > 2.2){ l.kt = w; ring(l,.75,false); k.tt = 0; }
+  }
+  k.wake += dt;
+  if(k.wake > 1.4){ k.wake = 0; addRipple(sp[2].x, sp[2].y, now(), .2, 2, minD*.07, false, null, null); }
+}
+function koiBody(){
+  const n = KN*2+2; let ax = KP[n*2-2], ay = KP[n*2-1];
+  ctx.beginPath(); ctx.moveTo((ax+KP[0])/2, (ay+KP[1])/2);
+  for(let i=0;i<n;i++){
+    const x = KP[i*2], y = KP[i*2+1], j = (i+1)%n;
+    ctx.quadraticCurveTo(x, y, (x+KP[j*2])/2, (y+KP[j*2+1])/2);
+  }
+  ctx.fill();
+}
+function drawKoi(k, w){
+  const s = k.size*kscale, sp = k.sp, grow = clamp((w-k.born)/.7,0,1), P = k.pat;
+  let ta = k.a;
+  for(let i=0;i<KN;i++){
+    const a = i ? Math.atan2(sp[i-1].y-sp[i].y, sp[i-1].x-sp[i].x) : k.a, nx = -Math.sin(a), ny = Math.cos(a);
+    const off = Math.sin(k.wob-i*.75)*i*.42*s, px = sp[i].x+nx*off, py = sp[i].y+ny*off, hw = KW[i]*s;
+    KC[i*4] = px; KC[i*4+1] = py; KC[i*4+2] = nx; KC[i*4+3] = ny;
+    KP[(1+i)*2] = px+nx*hw; KP[(1+i)*2+1] = py+ny*hw;
+    KP[(KN*2+1-i)*2] = px-nx*hw; KP[(KN*2+1-i)*2+1] = py-ny*hw;
+    ta = a;
+  }
+  KP[0] = KC[0]+Math.cos(k.a)*5.5*s; KP[1] = KC[1]+Math.sin(k.a)*5.5*s;
+  const e = (KN-1)*4, tx = KC[e], ty = KC[e+1];
+  KP[(KN+1)*2] = tx-Math.cos(ta)*3*s; KP[(KN+1)*2+1] = ty-Math.sin(ta)*3*s;
+  // shadow on the pond bed
+  ctx.globalAlpha = .24*grow; ctx.fillStyle = '#000';
+  ctx.translate(5*s, 8*s); koiBody(); ctx.translate(-5*s, -8*s);
+  // fins
+  ctx.globalAlpha = .62*grow; ctx.fillStyle = P.fin;
+  const fa = ta+Math.PI+Math.sin(k.wob-6.5)*.5, c = (a,r) => { fx = tx+Math.cos(a)*r*s; fy = ty+Math.sin(a)*r*s; };
+  let fx = 0, fy = 0;
+  ctx.beginPath(); ctx.moveTo(tx,ty);
+  c(fa-.6,9); const q1x = fx, q1y = fy; c(fa-.4,18); ctx.quadraticCurveTo(q1x,q1y,fx,fy);
+  c(fa,11); ctx.lineTo(fx,fy); c(fa+.4,18); ctx.lineTo(fx,fy);
+  c(fa+.6,9); ctx.quadraticCurveTo(fx,fy,tx,ty); ctx.fill();
+  const pa = Math.atan2(-KC[10], KC[11]), flap = Math.sin(k.wob*.8)*.2;
+  for(let sd=-1;sd<=1;sd+=2){
+    const fd = pa+Math.PI-sd*(1+flap), bx = KC[8]+KC[10]*sd*KW[2]*s*.8, by = KC[9]+KC[11]*sd*KW[2]*s*.8;
+    ctx.beginPath(); ctx.ellipse(bx+Math.cos(fd)*5*s, by+Math.sin(fd)*5*s, 7*s, 3*s, fd, 0, TAU); ctx.fill();
+  }
+  // body and markings
+  ctx.globalAlpha = .93*grow; ctx.fillStyle = P.base; koiBody();
+  for(const [i,col,lat] of P.spots){
+    const hw = KW[i]*s;
+    ctx.fillStyle = col; ctx.beginPath();
+    ctx.arc(KC[i*4]+KC[i*4+2]*lat*hw*.4, KC[i*4+1]+KC[i*4+3]*lat*hw*.4, hw*.68, 0, TAU); ctx.fill();
+  }
+}
+function burst(x, y, col, n){
+  for(let i=0;i<n && sparks.length<130;i++){
+    const a = Math.random()*TAU, v = 30+Math.random()*80;
+    sparks.push({x, y, vx:Math.cos(a)*v, vy:Math.sin(a)*v, life:1, col, d:.9+Math.random()});
+  }
+}
+
+/* ---------- the pond itself: stones, pebbles and lily pads, drawn once ---------- */
+const rng = s => () => { s = s+0x6D2B79F5|0; let t = Math.imul(s^s>>>15, 1|s); t = t+Math.imul(t^t>>>7, 61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+function drawDecor(){
+  const d = $('decor'), g = d.getContext('2d'), r = Math.min(window.devicePixelRatio||1, 2), R = rng(11), u = clamp(minD/400,1,1.6);
+  d.width = Math.round(W*r); d.height = Math.round(H*r); g.setTransform(r,0,0,r,0,0);
+  for(let i=0;i<34;i++){                                   // pebbles on the bed
+    const x = R()*W, y = R()*H, rad = (12+R()*30)*u, gr = g.createRadialGradient(x,y,0,x,y,rad);
+    gr.addColorStop(0,'rgba(0,0,0,.22)'); gr.addColorStop(.7,'rgba(0,0,0,.13)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x,y,rad,rad*(.6+R()*.3),R()*3,0,TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.035)'; g.beginPath(); g.ellipse(x-rad*.2,y-rad*.2,rad*.42,rad*.22,-.5,0,TAU); g.fill();
+  }
+  const stone = (x,y) => {                                 // the bank
+    const rx = (30+R()*24)*u, ry = rx*(.62+R()*.3), v = 30+R()*22|0;
+    g.save(); g.translate(x,y); g.rotate(R()*.8-.4);
+    g.fillStyle = 'rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(3,7,rx,ry,0,0,TAU); g.fill();
+    const gr = g.createLinearGradient(-rx,-ry,rx,ry);
+    gr.addColorStop(0,`rgba(${v+30},${v+32},${v+46},.95)`); gr.addColorStop(1,`rgba(${v-18},${v-18},${v-8},.97)`);
+    g.fillStyle = gr; g.beginPath(); g.ellipse(0,0,rx,ry,0,0,TAU); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.09)'; g.lineWidth = 1.5; g.stroke(); g.restore();
+  };
+  for(let x=-10;x<W+40;x+=(44+R()*30)*u){ stone(x,-4+R()*14); stone(x+20*R(),H+4-R()*14); }
+  for(let y=30;y<H;y+=(44+R()*30)*u){ stone(-6+R()*12,y); stone(W+6-R()*12,y+20*R()); }
+  const pad = (x,y,rad,flower) => {
+    const na = R()*TAU;
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.arc(x+3,y+6,rad,0,TAU); g.fill();
+    const gr = g.createRadialGradient(x,y,rad*.1,x,y,rad);
+    gr.addColorStop(0,'rgba(56,136,92,.95)'); gr.addColorStop(1,'rgba(18,64,50,.95)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(x,y); g.arc(x,y,rad,na+.22,na+TAU-.22); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(200,255,215,.22)'; g.lineWidth = 1.2; g.stroke();
+    g.strokeStyle = 'rgba(200,255,215,.1)'; g.lineWidth = 1; g.beginPath();
+    for(let j=1;j<10;j++){ const a = na+.22+j*(TAU-.44)/10; g.moveTo(x,y); g.lineTo(x+Math.cos(a)*rad*.88, y+Math.sin(a)*rad*.88); }
+    g.stroke();
+    if(!flower) return;
+    const fx = x+Math.cos(na+Math.PI)*rad*.2, fy = y+Math.sin(na+Math.PI)*rad*.2, gl = g.createRadialGradient(fx,fy,0,fx,fy,rad*.95);
+    gl.addColorStop(0,'rgba(255,190,215,.4)'); gl.addColorStop(1,'rgba(255,190,215,0)');
+    g.fillStyle = gl; g.beginPath(); g.arc(fx,fy,rad*.95,0,TAU); g.fill();
+    for(const [n,len,col,o] of [[9,.52,'#f59abf',0],[6,.36,'#ffe3ee',.4]]){
+      g.fillStyle = col;
+      for(let p=0;p<n;p++){ g.save(); g.translate(fx,fy); g.rotate(p/n*TAU+o); g.beginPath(); g.ellipse(rad*len*.55,0,rad*len*.55,rad*len*.22,0,0,TAU); g.fill(); g.restore(); }
+    }
+    g.fillStyle = '#ffd76a'; g.beginPath(); g.arc(fx,fy,rad*.09,0,TAU); g.fill();
+  };
+  [[.19,.2,1],[.83,.31,0],[.15,.6,0],[.85,.68,1],[.3,.8,0]].forEach(([ax,ay,fl]) => {
+    const x = ax*W, y = top*.4+ay*(H-top*.4), r1 = (25+R()*13)*u, n = 1+(R()*2.4|0);
+    pad(x,y,r1,fl);
+    for(let j=1;j<n;j++){ const a = R()*TAU, r2 = r1*(.5+R()*.3); pad(x+Math.cos(a)*(r1+r2*.85), y+Math.sin(a)*(r1+r2*.85), r2, 0); }
+  });
+}
+function caustic(n){
+  const c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'), im = g.createImageData(n,n), d = im.data;
+  for(let y=0;y<n;y++) for(let x=0;x<n;x++){
+    const u = x/n, v = y/n, a = Math.sin(TAU*(u+2*v)+1.8*Math.sin(TAU*(2*u-v))), b = Math.sin(TAU*(3*u-v)+1.6*Math.sin(TAU*(u+3*v)+1.3));
+    const k = (y*n+x)*4; d[k] = d[k+1] = d[k+2] = 255; d[k+3] = Math.pow(1-Math.abs(a+b)*.5, 5)*255;
+  }
+  g.putImageData(im,0,0); return c.toDataURL();
+}
+
+/* ---------- drawing ---------- */
+const sprites = new Map();
+function sprite(color){
+  let s = sprites.get(color); if(s) return s;
+  const c = hex(color);
+  const halo = document.createElement('canvas'); halo.width = halo.height = 128;
+  let g = halo.getContext('2d'), gr = g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,rgba(c,1)); gr.addColorStop(.3,rgba(c,.34)); gr.addColorStop(.65,rgba(c,.08)); gr.addColorStop(1,rgba(c,0));
+  g.fillStyle = gr; g.fillRect(0,0,128,128);
+  const core = document.createElement('canvas'); core.width = core.height = 64;
+  g = core.getContext('2d'); gr = g.createRadialGradient(32,25,0,32,32,30);
+  gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(.3,'rgba(255,255,255,.95)'); gr.addColorStop(.62,rgba(c,1)); gr.addColorStop(1,rgba(c,.55));
+  g.fillStyle = gr; g.beginPath(); g.arc(32,32,30,0,TAU); g.fill();
+  s = {halo, core}; sprites.set(color, s); return s;
+}
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, maxDPR);
+  W = cv.clientWidth; H = cv.clientHeight; minD = Math.min(W,H);
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  top = Math.min(96, H*.16); bot = Math.max(top+120, H - Math.min(150, H*.24));
+  kscale = clamp(minD/420,1,1.5);
+}
+const motes = Array.from({length:30}, () => ({x:Math.random(), y:Math.random(), r:1+Math.random()*2, s:.004+Math.random()*.01, ph:Math.random()*TAU}));
+
+let lastW = wall(), slow = .016, lastQ = 0;
+function frame(){
+  requestAnimationFrame(frame);
+  const w = wall(), raw = w-lastW, dt = Math.min(.05, raw); lastW = w;
+  // if the device cannot keep up, draw fewer pixels
+  slow = slow*.96 + Math.min(raw,.1)*.04;
+  if(slow > .023 && maxDPR > 1 && w-lastQ > 2.5){ maxDPR = Math.max(1, DPR-.5); lastQ = w; slow = .016; resize(); }
+  const t = now();
+  step(t);
+
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.clearRect(0,0,W,H);
+
+  // drifting motes
+  ctx.fillStyle = mood.ripple;
+  for(const m of motes){
+    if(!reduced){ m.y -= m.s*dt; if(m.y < -.02) m.y = 1.02; }
+    const sn = Math.sin(w*.5+m.ph);
+    ctx.globalAlpha = .06+.26*sn*sn;
+    ctx.fillRect(m.x*W, m.y*H, m.r, m.r);
+  }
+
+  // pitch rows
+  let dragging = false; dragRow = -1;
+  for(const st of ptrs.values()) if(st.kind==='lantern' && st.moved && !st.dead){ dragging = true; dragRow = st.obj.i; }
+  guideA += (((tool==='lantern' || dragging) && started ? 1 : 0)-guideA)*(1-Math.exp(-dt*6));
+  if(guideA > .01){
+    ctx.font = '500 10px Jost, system-ui, sans-serif'; ctx.textBaseline = 'middle'; ctx.lineWidth = 1;
+    const n = mood.scale.length;
+    for(let i=0;i<ROWS;i++){
+      const y = Math.round(rowY(i))+.5, on = i===dragRow;
+      ctx.strokeStyle = ctx.fillStyle = on ? mood.pal[colOf(i)] : mood.ripple;
+      ctx.globalAlpha = guideA*(on ? .55 : i%n===0 ? .16 : .07);
+      ctx.beginPath(); ctx.moveTo(42,y); ctx.lineTo(W-16,y); ctx.stroke();
+      ctx.globalAlpha = guideA*(on ? 1 : .45);
+      ctx.fillText(NAMES[((midiOf(i)%12)+12)%12], 16, y);
+    }
+  }
+
+  // koi, under the surface
+  for(const k of kois){ swim(k, dt, w); drawKoi(k, w); }
+
+  // ripples
+  ctx.globalCompositeOperation = 'lighter';
+  for(let k=ripples.length-1;k>=0;k--){
+    const r = ripples[k], rad = r.v*(t-r.t0);
+    if(rad <= 0) continue;
+    if(rad > r.R){ ripples.splice(k,1); continue; }
+    const a = r.e0*Math.pow(1-rad/r.R,1.4);
+    if(a < .012) continue;
+    ctx.strokeStyle = r.col || mood.ripple;
+    const rings = r.gen ? 2 : 3, gap = r.gen ? 5 : 10;
+    for(let j=0;j<rings;j++){
+      const rr = rad - j*gap; if(rr <= 0) break;
+      ctx.globalAlpha = a*(.6-j*.19); ctx.lineWidth = (r.gen ? 1.2 : 1.8)-j*.4;
+      ctx.beginPath(); ctx.arc(r.x,r.y,rr,0,TAU); ctx.stroke();
+    }
+  }
+
+  // springs
+  ctx.strokeStyle = ctx.fillStyle = mood.ripple;
+  for(const s of springs){
+    const x = s.x*W, y = s.y*H, per = s.per*beat(), p = clamp(1-(s.next-t)/per,0,1), grow = clamp((w-s.born)/.4,0,1);
+    const pulse = Math.exp(-p*per*3);
+    ctx.globalAlpha = .75; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(x,y,11*grow,0,TAU); ctx.stroke();
+    ctx.globalAlpha = .3; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.arc(x,y,11*grow,-1.571,-1.571+p*TAU); ctx.stroke();
+    ctx.globalAlpha = .5+.5*pulse;
+    ctx.beginPath(); ctx.arc(x,y,(2.6+2.5*pulse)*grow,0,TAU); ctx.fill();
+    ctx.globalAlpha = .55;
+    ctx.beginPath();
+    for(let j=0;j<s.per;j++){
+      const an = j/s.per*TAU-1.571, px = x+Math.cos(an)*19*grow, py = y+Math.sin(an)*19*grow;
+      ctx.moveTo(px+1.4,py); ctx.arc(px,py,1.4,0,TAU);
+    }
+    ctx.fill();
+  }
+
+  // sparks thrown off by a struck lantern
+  for(let k=sparks.length-1;k>=0;k--){
+    const p = sparks[k]; p.life -= dt*p.d;
+    if(p.life <= 0){ sparks[k] = sparks[sparks.length-1]; sparks.pop(); continue; }
+    p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= .96; p.vy *= .96;
+    ctx.fillStyle = p.col; ctx.globalAlpha = p.life*p.life;
+    ctx.fillRect(p.x-1.1, p.y-1.1, 2.2, 2.2);
+  }
+
+  // lanterns, drawn from cached sprites
+  const fade = Math.exp(-dt*2.6);
+  for(const l of lanterns){
+    l.flash *= fade;
+    l.bv += (-110*l.by - 6*l.bv)*dt; l.by += l.bv*dt;                      // bobs when struck
+    const sp = sprite(mood.pal[colOf(l.i)]), f = l.flash, grow = clamp((w-l.born)/.45,0,1), ez = 1-Math.pow(1-grow,3);
+    const breathe = reduced ? 1 : .9+.1*Math.sin(w*1.6+l.ph);
+    const x = l.x*W + (reduced ? 0 : Math.sin(w*.6+l.ph*2)*1.2), y = rowY(l.i) + (reduced ? 0 : Math.sin(w*.9+l.ph)*2.2) + l.by;
+    const size = (10 - l.i/(ROWS-1)*4.5)*ez;
+    if(size <= .1) continue;
+    const rw = size*(2.4+f*1.2)*(1+.08*Math.sin(w*1.7+l.ph)), rh = size*(6.6+f*5);   // reflection on the water
+    ctx.globalAlpha = Math.min(1,.28+f*.6);
+    ctx.drawImage(sp.halo, x-rw, y+size*2.4+5-rh, rw*2, rh*2);
+    const hr = size*(5.4*breathe + f*9);                                   // wide halo
+    ctx.globalAlpha = Math.min(1,.6+f*.4);
+    ctx.drawImage(sp.halo, x-hr, y-hr, hr*2, hr*2);
+    const h2 = size*2.7*(1+f*.6);                                          // tight glow
+    ctx.globalAlpha = Math.min(1,.55+f*.45);
+    ctx.drawImage(sp.halo, x-h2, y-h2, h2*2, h2*2);
+    if(f > .06){                                                           // glint
+      const len = size*(3+f*15), th = 1+f*1.8;
+      ctx.globalAlpha = Math.min(1,f*1.3);
+      ctx.drawImage(sp.halo, x-len, y-th, len*2, th*2);
+      ctx.drawImage(sp.halo, x-th, y-len*.8, th*2, len*1.6);
+    }
+    const cr = size*(1+f*.55);                                             // core
+    ctx.globalAlpha = 1;
+    ctx.drawImage(sp.core, x-cr, y-cr, cr*2, cr*2);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------- touch ---------- */
+const buzz = n => { try{ navigator.vibrate && navigator.vibrate(n); }catch(e){} };
+function hitTest(x,y,reach){
+  let best = null, bd = reach;
+  for(const l of lanterns){ const d = Math.hypot(l.x*W-x, rowY(l.i)-y); if(d < bd){ bd = d; best = {obj:l, kind:'lantern'}; } }
+  for(const s of springs){ const d = Math.hypot(s.x*W-x, s.y*H-y); if(d < bd){ bd = d; best = {obj:s, kind:'spring'}; } }
+  if(best) return best;
+  bd = 36;
+  for(const k of kois){ const d = Math.min(Math.hypot(k.x-x,k.y-y), Math.hypot(k.sp[4].x-x,k.sp[4].y-y)); if(d < bd){ bd = d; best = {obj:k, kind:'koi'}; } }
+  return best;
+}
+function lift(obj, kind){
+  const arr = kind==='lantern' ? lanterns : kind==='koi' ? kois : springs, k = arr.indexOf(obj);
+  if(k < 0) return;
+  arr.splice(k,1);
+  if(kind==='koi') addRipple(obj.x, obj.y, now(), .7, 2, minD*.14, false, null, null);
+  else addRipple(obj.x*W, kind==='lantern' ? rowY(obj.i) : obj.y*H, now(), .7, 2, minD*.14, false, null, null);
+  plip(freqOf(2), .6, 0); buzz(12); save();
+}
+cv.addEventListener('pointerdown', e => {
+  if(!started) return;
+  if(ac && ac.state !== 'running') ac.resume().catch(() => {});
+  try{ cv.setPointerCapture(e.pointerId); }catch(err){}
+  const x = e.clientX, y = e.clientY, hit = hitTest(x,y,30);
+  const st = {x0:x, y0:y, lx:x, ly:y, moved:false, obj:null, kind:null, acc:0, dead:false, timer:0};
+  if(hit){
+    st.obj = hit.obj; st.kind = hit.kind;
+    st.timer = setTimeout(() => { if(!st.moved && !st.dead){ st.dead = true; lift(st.obj, st.kind); } }, 520);
+  } else if(tool === 'drop'){
+    drop(x,y,1); st.kind = 'skim';
+  } else if(tool === 'lantern'){
+    if(lanterns.length >= MAXL) say('The pond is full. Hold a lantern to lift it out.');
+    else { st.obj = addLantern(clamp(x/W,.09,.91), rowAt(y)); st.kind = 'lantern'; st.moved = true; ring(st.obj,.8,true); buzz(6); }
+  } else if(tool === 'spring'){
+    if(springs.length >= MAXS) say('Six springs is plenty. Hold one to lift it out.');
+    else { st.obj = addSpring(clamp(x/W,.09,.91), clamp(y/H,.08,.92), 4); st.obj.next = now(); st.kind = 'spring'; st.moved = true; buzz(6); }
+  } else if(tool === 'koi'){
+    if(kois.length >= MAXK) say('Five koi fill the pond. Hold one to lift it out.');
+    else { addKoi(x,y); addRipple(x,y,now(),.6,2,minD*.14,false,null,null); plip(freqOf(4),.6,0); buzz(6); save(); }
+  }
+  ptrs.set(e.pointerId, st);
+});
+cv.addEventListener('pointermove', e => {
+  const st = ptrs.get(e.pointerId); if(!st || st.dead) return;
+  const x = e.clientX, y = e.clientY;
+  if(!st.moved && Math.hypot(x-st.x0,y-st.y0) > 13){ st.moved = true; clearTimeout(st.timer); }
+  if(st.kind === 'koi') return;
+  if(st.kind === 'skim'){
+    st.acc += Math.hypot(x-st.lx,y-st.ly);
+    if(st.acc > 64){ st.acc = 0; drop(x,y,.45); }
+  } else if(st.moved && st.kind === 'lantern'){
+    st.obj.x = clamp(x/W,.09,.91);
+    const ni = rowAt(y); if(ni !== st.obj.i){ st.obj.i = ni; ring(st.obj,.5,true); }
+  } else if(st.moved && st.kind === 'spring'){
+    st.obj.x = clamp(x/W,.09,.91); st.obj.y = clamp(y/H,.08,.92);
+  }
+  st.lx = x; st.ly = y;
+});
+function release(e){
+  const st = ptrs.get(e.pointerId); if(!st) return;
+  clearTimeout(st.timer); ptrs.delete(e.pointerId);
+  if(st.dead) return;
+  if(st.obj && !st.moved && e.type === 'pointerup'){
+    if(st.kind === 'lantern') ring(st.obj,1,false);
+    else if(st.kind === 'koi'){ const k = st.obj; k.boost = 1; k.a += (Math.random()-.5)*3; k.tt = 0; addRipple(k.x,k.y,now(),.5,2,minD*.12,false,null,null); }
+    else { st.obj.per = PERS[(PERS.indexOf(st.obj.per)+1)%PERS.length]; st.obj.next = now()+.05;
+      say(st.obj.per === 1 ? 'A pebble every beat' : `A pebble every ${st.obj.per} beats`, 2200); }
+  }
+  if(st.obj) save();
+}
+cv.addEventListener('pointerup', release);
+cv.addEventListener('pointercancel', release);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- controls ---------- */
+let capT = 0;
+function say(text, ms){
+  const c = $('caption'); c.textContent = text; c.classList.add('on');
+  clearTimeout(capT); capT = setTimeout(() => c.classList.remove('on'), ms || 4200);
+}
+const HINTS = {drop:'Tap the water. Drag to skim a trail.', lantern:'Set a lantern afloat. Higher sings higher.',
+  spring:'Plant a spring. Tap it to change its pulse.', koi:'Tap the water to release a koi. Hold one to lift it out.'};
+function setTool(name){
+  tool = name;
+  document.querySelectorAll('.tool').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === name)));
+  say(HINTS[name]);
+}
+document.querySelectorAll('.tool').forEach(b => b.addEventListener('click', () => setTool(b.dataset.tool)));
+
+// one background layer and one chooser card per mood
+MOODS.forEach((m,k) => {
+  const g = hex(m.glow), d = document.createElement('div');
+  d.className = 'bg'; d.style.background = `linear-gradient(${m.bg[0]},${m.bg[1]} 55%,${m.bg[2]})`;
+  const i = document.createElement('i');
+  i.style.background = `radial-gradient(circle at 32% 30%,${rgba(g,.2)},transparent 42%),radial-gradient(circle at 72% 62%,${rgba(g,.16)},transparent 46%),radial-gradient(circle at 40% 86%,${rgba(g,.12)},transparent 38%)`;
+  d.appendChild(i); $('bgs').appendChild(d); m.el = d;
+  const b = document.createElement('button');
+  b.className = 'mood'; b.style.background = `linear-gradient(160deg,${m.bg[1]},${m.bg[2]})`;
+  b.innerHTML = `<em style="background:${m.pal[0]};box-shadow:0 0 12px ${m.pal[0]}"></em><b>${m.name}</b><span>${m.desc}</span>`;
+  b.addEventListener('click', () => { moodI = k; applyMood(true); save(); sheet(null); });
+  $('moods').appendChild(b); m.btn = b;
+});
+function applyMood(announce){
+  mood = MOODS[moodI];
+  document.documentElement.style.setProperty('--accent', mood.pal[0]);
+  $('moodName').textContent = mood.name;
+  MOODS.forEach(m => { m.el.classList.toggle('on', m === mood); m.btn.setAttribute('aria-pressed', String(m === mood)); });
+  tuneAudio(1.2);
+  if(announce) say(`${mood.name}. ${mood.desc}.`, 3600);
+}
+function sheet(id){
+  ['sheet','moodSheet'].forEach(s => { $(s).classList.toggle('on', s === id); $(s).setAttribute('aria-hidden', String(s !== id)); });
+  $('scrim').classList.toggle('on', !!id);
+}
+$('mood').addEventListener('click', () => sheet('moodSheet'));
+$('menu').addEventListener('click', () => sheet('sheet'));
+$('scrim').addEventListener('click', () => sheet(null));
+$('flow').addEventListener('input', e => {
+  flow = +e.target.value;
+  if(ac) delay.delayTime.setTargetAtTime(beat()*.75, ac.currentTime, .3);
+});
+$('flow').addEventListener('change', save);
+$('echo').addEventListener('click', e => { echoes = !echoes; e.currentTarget.setAttribute('aria-pressed', String(echoes)); save(); });
+$('drone').addEventListener('click', e => { droneOn = !droneOn; e.currentTarget.setAttribute('aria-pressed', String(droneOn)); setDrone(); save(); });
+$('clear').addEventListener('click', () => { loadPond({l:[],s:[]}); save(); sheet(null); say('Still water. Set a lantern afloat, then drop a pebble.'); });
+$('restore').addEventListener('click', () => { loadPond(PRESET); save(); sheet(null); });
+addEventListener('keydown', e => {
+  if(!started || e.target.tagName === 'INPUT') return;
+  const k = ['1','2','3','4'].indexOf(e.key);
+  if(k >= 0) setTool(['drop','lantern','spring','koi'][k]);
+  else if(e.key === 'm'){ moodI = (moodI+1)%MOODS.length; applyMood(true); save(); }
+  else if(e.key === 'Escape') sheet(null);
+});
+document.addEventListener('visibilitychange', () => { if(!document.hidden && ac && ac.state !== 'running') ac.resume().catch(() => {}); });
+
+$('begin').addEventListener('click', () => {
+  if(started) return;
+  let ok = true;
+  try{ initAudio(); const p = ac.resume(); if(p && p.catch) p.catch(() => {}); }catch(err){ ok = false; ac = null; }
+  ripples = []; hits = [];
+  started = true;
+  const t = now(); springs.forEach((s,k) => { s.next = t+.5+k*beat(); }); lanterns.forEach(l => { l.last = -1; });
+  $('intro').classList.add('off'); $('top').classList.remove('hid'); $('tools').classList.remove('hid');
+  setTimeout(() => say(ok ? HINTS.drop : 'This browser blocked the sound, but the water still moves.', 5200), 900);
+});
+
+/* ---------- go ---------- */
+resize();
+restore();
+$('flow').value = flow; $('echo').setAttribute('aria-pressed', String(echoes)); $('drone').setAttribute('aria-pressed', String(droneOn));
+applyMood(false);
+drawDecor(); addEventListener('resize', () => { resize(); drawDecor(); });
+try{ $('causA').style.backgroundImage = `url(${caustic(128)})`; $('causB').style.backgroundImage = `url(${caustic(96)})`; }catch(e){}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
