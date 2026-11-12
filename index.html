@@ -38,6 +38,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 @keyframes causA{from{transform:scale(2) translate3d(0,0,0)}to{transform:scale(2) translate3d(-128px,-128px,0)}}
 @keyframes causB{from{transform:scale(2) translate3d(-96px,0,0)}to{transform:scale(2) translate3d(0,-96px,0)}}
 #decor{pointer-events:none}
+#pads{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+#pads canvas{inset:auto;pointer-events:none;will-change:transform;animation:sway 20s ease-in-out infinite}
+@keyframes sway{0%,62%,100%{transform:none}70%{transform:translate(2px,1px) rotate(3deg)}79%{transform:translate(-1.500px,0) rotate(-2.200deg)}88%{transform:translate(.800px,-.500px) rotate(1.100deg)}95%{transform:rotate(-.400deg)}}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
 .vign{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 35%,rgba(0,0,0,.5) 100%)}
 
@@ -108,7 +111,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .chrome{transition:opacity .9s}
 .chrome.hid{opacity:0;pointer-events:none}
 @media (max-width:350px){.tool{min-width:68px;padding:0 6px}}
-@media (prefers-reduced-motion:reduce){.bg.on i,.caus{animation:none}.sheet,.caption,.intro,.bg{transition:none}}
+@media (prefers-reduced-motion:reduce){.bg.on i,.caus,#pads canvas{animation:none}.sheet,.caption,.intro,.bg{transition:none}}
 </style>
 </head>
 <body>
@@ -116,6 +119,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <div class="caus" id="causA"></div>
 <div class="caus" id="causB"></div>
 <canvas id="decor" aria-hidden="true"></canvas>
+<div id="pads" aria-hidden="true"></div>
 <canvas id="pond" aria-label="The pond. Tap to play."></canvas>
 <div class="vign"></div>
 
@@ -213,8 +217,8 @@ const MOODS = [
    bg:['#040a14','#0c2036','#214862'], glow:'#8fe6ff', ripple:'#d7f0ff', pal:['#e6f7ff','#8fe6ff','#b9c8ff','#a8ffe8','#ffffff']},
   {name:'Dawn', desc:'G major, harp', root:55, scale:[0,2,4,7,9,11], timbre:'harp',
    bg:['#110b24','#3d1f4a','#8a4a55'], glow:'#ffc48a', ripple:'#ffe9d6', pal:['#fff0b8','#ffb3a0','#ffd27a','#f7a8d8','#ffe6cf','#b8e0ff']},
-  {name:'Tide', desc:'C whole tone, hollow pipes', root:48, scale:[0,2,4,6,8,10], timbre:'pipe', drone:[-12,-4,0,8],
-   bg:['#020d16','#06303f','#0d5a66'], glow:'#4fe0d0', ripple:'#cffcf5', pal:['#7af0e0','#a0c8ff','#d0fff0','#6fb8ff','#b0f5c8','#e0e8ff']},
+  {name:'Tide', desc:'C Dorian, hollow pipes', root:48, scale:[0,2,3,5,7,9,10], timbre:'pipe',
+   bg:['#020d16','#06303f','#0d5a66'], glow:'#4fe0d0', ripple:'#cffcf5', pal:['#7af0e0','#a0c8ff','#d0fff0','#6fb8ff','#b0f5c8','#e0e8ff','#9ad8f0']},
   {name:'Cedar', desc:'G minor sixth, marimba', root:55, scale:[0,2,3,7,9], timbre:'marimba',
    bg:['#0b0805','#2a1c10','#4d3418'], glow:'#e0a050', ripple:'#f5e2c0', pal:['#f0c070','#e89060','#f5e0a0','#c8d080','#ffb080']},
   {name:'Bronze', desc:'C sharp pelog, gamelan', root:49, scale:[0,1,3,7,8], timbre:'gamelan',
@@ -521,7 +525,7 @@ function drawDecor(){
     g.fillStyle = 'rgba(255,255,255,.035)'; g.beginPath(); g.ellipse(x-rad*.2,y-rad*.2,rad*.42,rad*.22,-.5,0,TAU); g.fill();
   }
   const stone = (x,y) => {                                 // the bank
-    const rx = (30+R()*24)*u, ry = rx*(.62+R()*.3), v = 30+R()*22|0;
+    const rx = (26+R()*20)*u, ry = rx*(.62+R()*.3), v = 30+R()*22|0;
     g.save(); g.translate(x,y); g.rotate(R()*.8-.4);
     g.fillStyle = 'rgba(0,0,0,.42)'; g.beginPath(); g.ellipse(3,7,rx,ry,0,0,TAU); g.fill();
     const gr = g.createLinearGradient(-rx,-ry,rx,ry);
@@ -529,9 +533,9 @@ function drawDecor(){
     g.fillStyle = gr; g.beginPath(); g.ellipse(0,0,rx,ry,0,0,TAU); g.fill();
     g.strokeStyle = 'rgba(255,255,255,.09)'; g.lineWidth = 1.5; g.stroke(); g.restore();
   };
-  for(let x=-10;x<W+40;x+=(44+R()*30)*u){ stone(x,-4+R()*14); stone(x+20*R(),H+4-R()*14); }
-  for(let y=30;y<H;y+=(44+R()*30)*u){ stone(-6+R()*12,y); stone(W+6-R()*12,y+20*R()); }
-  const pad = (x,y,rad,flower) => {
+  for(let x=-10;x<W+40;x+=(40+R()*26)*u){ stone(x,-16*u+R()*9); stone(x+20*R(),H+16*u-R()*9); }
+  for(let y=30;y<H;y+=(40+R()*26)*u){ stone(-17*u+R()*9,y); stone(W+17*u-R()*9,y+20*R()); }
+  const pad = (g,x,y,rad,flower) => {
     const na = R()*TAU;
     g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.arc(x+3,y+6,rad,0,TAU); g.fill();
     const gr = g.createRadialGradient(x,y,rad*.1,x,y,rad);
@@ -551,10 +555,21 @@ function drawDecor(){
     }
     g.fillStyle = '#ffd76a'; g.beginPath(); g.arc(fx,fy,rad*.09,0,TAU); g.fill();
   };
-  [[.19,.2,1],[.83,.31,0],[.15,.6,0],[.85,.68,1],[.3,.8,0]].forEach(([ax,ay,fl]) => {
-    const x = ax*W, y = top*.4+ay*(H-top*.4), r1 = (25+R()*13)*u, n = 1+(R()*2.4|0);
-    pad(x,y,r1,fl);
-    for(let j=1;j<n;j++){ const a = R()*TAU, r2 = r1*(.5+R()*.3); pad(x+Math.cos(a)*(r1+r2*.85), y+Math.sin(a)*(r1+r2*.85), r2, 0); }
+  const host = $('pads'); host.textContent = '';
+  [[.19,.2,1],[.83,.31,0],[.15,.6,0],[.85,.68,1],[.3,.8,0]].forEach(([ax,ay,fl],k) => {
+    const x = ax*W, y = top*.4+ay*(H-top*.4), r1 = (25+R()*13)*u, n = 1+(R()*2.4|0), list = [[0,0,r1,fl]];
+    let E = r1;
+    for(let j=1;j<n;j++){
+      const a = R()*TAU, r2 = r1*(.5+R()*.3), dd = r1+r2*.85;
+      list.push([Math.cos(a)*dd, Math.sin(a)*dd, r2, 0]); E = Math.max(E, dd+r2);
+    }
+    E = Math.ceil(E+10);
+    const c = document.createElement('canvas'), cg = c.getContext('2d');
+    c.width = c.height = Math.round(E*2*r);
+    c.style.cssText = `left:${x-E}px;top:${y-E}px;width:${E*2}px;height:${E*2}px;animation-duration:${17+k*3.7}s;animation-delay:${-k*6.3}s`;
+    cg.setTransform(r,0,0,r,E*r,E*r);
+    for(const [dx,dy,rad,f] of list) pad(cg,dx,dy,rad,f);
+    host.appendChild(c);
   });
 }
 function caustic(n){
