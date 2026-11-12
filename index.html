@@ -27,22 +27,19 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 
 /* water: one static layer per mood, crossfaded by the compositor */
-.bg{position:absolute;inset:0;opacity:0;transition:opacity 1.6s;overflow:hidden;pointer-events:none}
-.bg.on{opacity:1}
-.bg i{position:absolute;inset:-25%;will-change:transform}
+.bg{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity 1.6s,visibility 0s 1.6s;overflow:hidden;pointer-events:none}
+.bg.on{opacity:1;visibility:visible;transition:opacity 1.6s}
+.bg i{position:absolute;inset:-25%}
 .bg.on i{animation:drift 70s ease-in-out infinite alternate}
 @keyframes drift{from{transform:translate3d(-6%,4%,0) rotate(8deg)}to{transform:translate3d(6%,-5%,0) rotate(-6deg)}}
 .caus{position:absolute;left:0;top:0;width:calc(50% + 128px);height:calc(50% + 128px);transform-origin:0 0;transform:scale(2);pointer-events:none;will-change:transform}
-#causA{background-size:128px 128px;opacity:.12;animation:causA 46s linear infinite}
-#causB{background-size:96px 96px;opacity:.08;animation:causB 38s linear infinite}
+#causA{background-size:128px 128px;opacity:.15;animation:causA 46s linear infinite}
 @keyframes causA{from{transform:scale(2) translate3d(0,0,0)}to{transform:scale(2) translate3d(-128px,-128px,0)}}
-@keyframes causB{from{transform:scale(2) translate3d(-96px,0,0)}to{transform:scale(2) translate3d(0,-96px,0)}}
 #decor{pointer-events:none}
 #pads{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 #pads canvas{inset:auto;pointer-events:none;will-change:transform;animation:sway 20s ease-in-out infinite}
 @keyframes sway{0%,62%,100%{transform:none}70%{transform:translate(2px,1px) rotate(3deg)}79%{transform:translate(-1.500px,0) rotate(-2.200deg)}88%{transform:translate(.800px,-.500px) rotate(1.100deg)}95%{transform:rotate(-.400deg)}}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
-.vign{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 48%,transparent 35%,rgba(0,0,0,.5) 100%)}
 
 .top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:12px;
   padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 0 max(18px,env(safe-area-inset-left));pointer-events:none}
@@ -91,6 +88,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 .btns .pill{flex:1;justify-content:center;font-size:12px;white-space:nowrap;background:rgba(255,255,255,.06)}
 .how{margin:0;padding:16px 0 0;border-top:1px solid var(--glass-line);display:grid;gap:10px;font-size:14px;line-height:1.45;color:var(--ink-dim);font-weight:300;list-style:none}
 .how b{color:var(--ink);font-weight:500}
+.stat{margin:0;font-size:11.5px;letter-spacing:.04em;color:var(--ink-dim);font-weight:300;font-variant-numeric:tabular-nums}
 
 .moods{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mood{position:relative;text-align:left;border-radius:18px;padding:14px 14px 13px;border:1px solid var(--glass-line);overflow:hidden;display:flex;flex-direction:column;gap:3px;min-height:84px;justify-content:flex-end}
@@ -117,11 +115,9 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 <body>
 <div id="bgs"></div>
 <div class="caus" id="causA"></div>
-<div class="caus" id="causB"></div>
 <canvas id="decor" aria-hidden="true"></canvas>
 <div id="pads" aria-hidden="true"></div>
 <canvas id="pond" aria-label="The pond. Tap to play."></canvas>
-<div class="vign"></div>
 
 <header class="top chrome hid" id="top">
   <div class="mark">Mere</div>
@@ -185,6 +181,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
     <li><b>Koi.</b> Tap the water to release a fish. It wanders the pond and rings the lanterns it brushes past. Tap one to startle it.</li>
     <li><b>Mood.</b> The button at the top changes the key, the voice and the light.</li>
   </ul>
+  <p class="stat" id="stat"></p>
 </section>
 
 <div class="intro" id="intro">
@@ -518,6 +515,8 @@ const rng = s => () => { s = s+0x6D2B79F5|0; let t = Math.imul(s^s>>>15, 1|s); t
 function drawDecor(){
   const d = $('decor'), g = d.getContext('2d'), r = Math.min(window.devicePixelRatio||1, 2), R = rng(11), u = clamp(minD/400,1,1.6);
   d.width = Math.round(W*r); d.height = Math.round(H*r); g.setTransform(r,0,0,r,0,0);
+  const vg = g.createRadialGradient(W/2,H*.48,minD*.35,W/2,H*.5,Math.hypot(W,H)*.62);
+  vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,.5)'); g.fillStyle = vg; g.fillRect(0,0,W,H);
   for(let i=0;i<34;i++){                                   // pebbles on the bed
     const x = R()*W, y = R()*H, rad = (12+R()*30)*u, gr = g.createRadialGradient(x,y,0,x,y,rad);
     gr.addColorStop(0,'rgba(0,0,0,.22)'); gr.addColorStop(.7,'rgba(0,0,0,.13)'); gr.addColorStop(1,'rgba(0,0,0,0)');
@@ -606,13 +605,23 @@ function resize(){
 }
 const motes = Array.from({length:30}, () => ({x:Math.random(), y:Math.random(), r:1+Math.random()*2, s:.004+Math.random()*.01, ph:Math.random()*TAU}));
 
-let lastW = wall(), slow = .016, lastQ = 0;
+let lastW = wall(), fN = 0, fT = 0, trial = 0, prevDPR = 2, adapt = true, calmUntil = 0;
 function frame(){
   requestAnimationFrame(frame);
   const w = wall(), raw = w-lastW, dt = Math.min(.05, raw); lastW = w;
-  // if the device cannot keep up, draw fewer pixels
-  slow = slow*.96 + Math.min(raw,.1)*.04;
-  if(slow > .023 && maxDPR > 1 && w-lastQ > 2.5){ maxDPR = Math.max(1, DPR-.5); lastQ = w; slow = .016; resize(); }
+  // measure in windows of 90 frames, ignoring one-off hitches
+  if(raw < .1 && w > calmUntil){ fN++; fT += raw; }
+  if(fN >= 90){
+    const avg = fT/fN; fN = 0; fT = 0;
+    if(adapt && started){
+      if(trial){
+        // drawing fewer pixels did not help, so the browser itself is capping the frame rate: go back to full sharpness
+        if(avg > trial*.88){ maxDPR = prevDPR; adapt = false; resize(); calmUntil = w+1; }
+        trial = 0;
+      } else if(avg > .024 && DPR > 1.25){ trial = avg; prevDPR = DPR; maxDPR = Math.max(1.25, DPR-.5); resize(); calmUntil = w+1; }
+    }
+    $('stat').textContent = `Drawing at ${DPR}× sharpness, ${Math.round(1/avg)} frames a second, ${lanterns.length} lanterns`;
+  }
   const t = now();
   step(t);
 
@@ -868,7 +877,7 @@ $('begin').addEventListener('click', () => {
   let ok = true;
   try{ initAudio(); const p = ac.resume(); if(p && p.catch) p.catch(() => {}); }catch(err){ ok = false; ac = null; }
   ripples = []; hits = [];
-  started = true;
+  started = true; calmUntil = wall()+3;
   const t = now(); springs.forEach((s,k) => { s.next = t+.5+k*beat(); }); lanterns.forEach(l => { l.last = -1; });
   $('intro').classList.add('off'); $('top').classList.remove('hid'); $('tools').classList.remove('hid');
   setTimeout(() => say(ok ? HINTS.drop : 'This browser blocked the sound, but the water still moves.', 5200), 900);
@@ -879,8 +888,13 @@ resize();
 restore();
 $('flow').value = flow; $('echo').setAttribute('aria-pressed', String(echoes)); $('drone').setAttribute('aria-pressed', String(droneOn));
 applyMood(false);
-drawDecor(); addEventListener('resize', () => { resize(); drawDecor(); });
-try{ $('causA').style.backgroundImage = `url(${caustic(128)})`; $('causB').style.backgroundImage = `url(${caustic(96)})`; }catch(e){}
+drawDecor();
+let rsT = 0;
+addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => {
+  if(cv.clientWidth === W && cv.clientHeight === H) return;
+  resize(); drawDecor(); calmUntil = wall()+2;
+}, 180); });
+try{ $('causA').style.backgroundImage = `url(${caustic(128)})`; }catch(e){}
 requestAnimationFrame(frame);
 })();
 </script>
